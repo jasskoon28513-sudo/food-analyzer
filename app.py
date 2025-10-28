@@ -70,6 +70,10 @@ Use Google Search to find all necessary nutritional and ingredient data.
         system_instruction=system_prompt,
         tools=[{"google_search": {}}]
     )
+
+    if not response.parts:
+        print(f"Response blocked by API. Feedback by NSAI: {response.prompt_feedback}")
+        rasie Exception(f"THe response was blocked: Feedback: {response.prompt_feedback}")
     return response.text
 
 # --- Health Check Route ---
@@ -119,5 +123,5 @@ def execute():
     except Exception as e:
         # Catch all other unexpected errors
         print(f"Internal Server Error: {e}")
-        return jsonify({'error': 'An unexpected internal server error occurred.'}), 500
+        return jsonify({'error': 'An unexpected internal server error occurred: {str(e)}'}), 500
 
