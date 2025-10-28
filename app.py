@@ -8,34 +8,40 @@ import os
 # --- Configuration and Initialization ---
 
 # Azure App Service will securely provide the API key via Application Settings
-# The new genai.Client() automatically reads "GOOGLE_API_KEY"
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
-# Hardcoded model name as requested
-MODEL_TO_USE = 'gemini-2.5-flash' 
+# -----------------------------------------------------------------
+# ### FIX 1: REVERT TO OLD SDK SYNTAX ###
+# The 'genai.Client' syntax is for the new SDK (>= 1.0.0).
+# The error shows your server has an older version.
+# We will revert to the 'genai.GenerativeModel' syntax.
+# The 'models/' prefix is also removed, as it's not used here.
+# -----------------------------------------------------------------
+MODEL_TO_USE = 'gemini-2.5-flash'
 
 if not API_KEY:
     # In a cloud environment, print a fatal message
     print("FATAL: GOOGLE_API_KEY environment variable not found. The application cannot start.")
 
+# --- FIX 1 (Continued): Initialize with old syntax ---
 try:
-    # Initialize the new client. 
-    # It automatically uses the GOOGLE_API_KEY environment variable.
+    # Initialize using genai.configure and genai.GenerativeModel
     if API_KEY:
-        client = genai.Client()
+        genai.configure(api_key=API_KEY)
+        model = genai.GenerativeModel(MODEL_TO_USE)
     else:
-        client = None 
+        model = None 
 except Exception as e:
     # Handle configuration failure
     print(f"ERROR: Failed to configure Google Generative AI Client: {e}")
-    client = None
+    model = None
 
 # Initialize Flask app
 # The name must be 'app' for Azure/Gunicorn to easily find it.
-app = Flask(__name__)
+app = Flask(_name_)
 
 # Configure CORS (use specific origins in production)
-CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
+CORS(app, resources={r"/api/": {"origins": "", "supports_credentials": True}})
 
 # --- Core LLM Logic ---
 
@@ -44,8 +50,9 @@ def execute_food_analyzer(query: str):
     Skill: Food and Nutrition Analyzer
     Generates a report on a food item using AI and Google Search.
     """
-    if not client:
-        raise Exception("AI client failed to initialize due to missing or invalid API key.")
+    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
+    if not model:
+        raise Exception("AI model failed to initialize due to missing or invalid API key.")
 
     # System instruction defines the AI's persona and task
     system_prompt = f"""
@@ -62,20 +69,23 @@ Maintain clarity, emojis, and clean formatting as in Amul Butter style.
 Use Google Search to find all necessary nutritional and ingredient data.
 """
     
-    # Use Google Search grounding to find nutritional data
-    # Updated syntax for the new genai.Client
-    response = client.generate_content(
-        model=MODEL_TO_USE,
+    # --- FIX 1 (Continued): Use model.generate_content ---
+    # We call generate_content on the 'model' object, not the 'client'
+    # and remove the 'model=' argument.
+    response = model.generate_content(
         contents=query,  # The user's food item (e.g., "Amul Butter")
         system_instruction=system_prompt,
         tools=[{"google_search": {}}]
     )
 
-    # Check if the response was blocked
+    # -----------------------------------------------------------------
+    # ### FIX 2: RESPONSE CHECK ###
+    # This check is still correct and important.
+    # -----------------------------------------------------------------
     if not response.parts:
-        print(f"Response blocked by API. Feedback: {response.prompt_feedback}")
-        # *** CORRECTION: Changed 'rasie' to 'raise' ***
-        raise Exception(f"The response was blocked. Feedback: {response.prompt_feedback}")
+        # This handles cases where the response was blocked
+        print(f"Response was blocked by API. Feedback: {response.prompt_feedback}")
+        raise Exception(f"The response was blocked by the API. Feedback: {response.prompt_feedback}")
         
     return response.text
 
@@ -87,10 +97,11 @@ def check():
     Simple health check route to confirm the backend server is running.
     """
     status_code = 200
-    if not client:
+    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
+    if not model:
         # Return 503 if the core dependency (AI client) failed to initialize
         status_code = 503
-        message = "backend is running, but AI client failed to initialize."
+        message = "backend is running, but AI model failed to initialize."
     else:
         message = "backend is running"
 
@@ -105,7 +116,8 @@ def check():
 @app.route('/api/execute', methods=['POST'])
 def execute():
     # 1. Input Validation
-    if not client:
+    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
+    if not model:
         return jsonify({'error': 'AI service not initialized. Check API key configuration.'}), 503
 
     data = request.get_json(silent=True)
@@ -126,6 +138,7 @@ def execute():
     except Exception as e:
         # Catch all other unexpected errors
         print(f"Internal Server Error: {e}")
-        # *** CORRECTION: Fixed f-string formatting in error message ***
+        
+        # This will now return the actual error message to Bruno,
+        # which is much better for debugging.
         return jsonify({'error': f'An unexpected internal server error occurred: {str(e)}'}), 500
-
