@@ -2,7 +2,7 @@ import google.generativeai as genai
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-from google.generativeai.errors import APIError
+# Removed: from google.generativeai.errors import APIError
 
 # --- Configuration and Initialization ---
 
@@ -115,10 +115,8 @@ def execute():
         
         return jsonify({'success': True, 'result': result})
         
-    except APIError as e:
-        # Handle specific Gemini API errors
-        print(f"Gemini API Error: {e}")
-        return jsonify({'error': f'AI Service Unavailable or request error: {e}'}), 503
+    # Removed the specific 'except APIError as e:' block.
+    # The general 'except Exception' block will now catch all errors.
         
     except Exception as e:
         # Catch all other unexpected errors
