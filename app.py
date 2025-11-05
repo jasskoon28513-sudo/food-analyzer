@@ -38,7 +38,7 @@ except Exception as e:
 
 # Initialize Flask app
 # The name must be 'app' for Azure/Gunicorn to easily find it.
-app = Flask(_name_)
+app = Flask(__name__)
 
 # Configure CORS (use specific origins in production)
 CORS(app, resources={r"/api/": {"origins": "", "supports_credentials": True}})
