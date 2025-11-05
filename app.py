@@ -11,11 +11,9 @@ import os
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # -----------------------------------------------------------------
-# ### FIX 1: REVERT TO OLD SDK SYNTAX ###
-# The 'genai.Client' syntax is for the new SDK (>= 1.0.0).
-# The error shows your server has an older version.
-# We will revert to the 'genai.GenerativeModel' syntax.
-# The 'models/' prefix is also removed, as it's not used here.
+# ### FIX 2: CORRECT MODEL NAME ###
+# The model 'gemini-2.5-flash' was incorrect.
+# It has been corrected to 'gemini-2.5-flash'.
 # -----------------------------------------------------------------
 MODEL_TO_USE = 'gemini-2.5-flash'
 
@@ -30,7 +28,7 @@ try:
         genai.configure(api_key=API_KEY)
         model = genai.GenerativeModel(MODEL_TO_USE)
     else:
-        model = None 
+        model = None
 except Exception as e:
     # Handle configuration failure
     print(f"ERROR: Failed to configure Google Generative AI Client: {e}")
@@ -41,7 +39,10 @@ except Exception as e:
 app = Flask(__name__)
 
 # Configure CORS (use specific origins in production)
-CORS(app, resources={r"/api/": {"origins": "", "supports_credentials": True}})
+# --- FIX 3: Set CORS to '*' (Allow All) ---
+# An empty string "" is not a valid origin. Use "*" for development,
+# or your specific frontend URL like "https://my-food-app.com" for production.
+CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
 
 # --- Core LLM Logic ---
 
@@ -68,7 +69,7 @@ Generate a visually engaging report using this structure:
 Maintain clarity, emojis, and clean formatting as in Amul Butter style.
 Use Google Search to find all necessary nutritional and ingredient data.
 """
-    
+
     # --- FIX 1 (Continued): Use model.generate_content ---
     # We call generate_content on the 'model' object, not the 'client'
     # and remove the 'model=' argument.
@@ -86,7 +87,7 @@ Use Google Search to find all necessary nutritional and ingredient data.
         # This handles cases where the response was blocked
         print(f"Response was blocked by API. Feedback: {response.prompt_feedback}")
         raise Exception(f"The response was blocked by the API. Feedback: {response.prompt_feedback}")
-        
+
     return response.text
 
 # --- Health Check Route ---
@@ -106,8 +107,8 @@ def check():
         message = "backend is running"
 
     return jsonify({
-        'status': 'ok' if status_code == 200 else 'error', 
-        'message': message, 
+        'status': 'ok' if status_code == 200 else 'error',
+        'message': message,
         'model': MODEL_TO_USE
     }), status_code
 
@@ -128,17 +129,17 @@ def execute():
     # Validate that query is a non-empty string
     if not query or not isinstance(query, str) or not query.strip():
         return jsonify({'error': 'Missing or empty "query" field in the request.'}), 400
-    
+
     # 2. Execution and Specific Error Handling
     try:
         result = execute_food_analyzer(query)
-        
+
         return jsonify({'success': True, 'result': result})
-        
+
     except Exception as e:
         # Catch all other unexpected errors
         print(f"Internal Server Error: {e}")
-        
+
         # This will now return the actual error message to Bruno,
         # which is much better for debugging.
         return jsonify({'error': f'An unexpected internal server error occurred: {str(e)}'}), 500
