@@ -11,20 +11,28 @@ import os
 API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # -----------------------------------------------------------------
-# ### FIX 2: CORRECT MODEL NAME ###
-# The model 'gemini-2.5-flash' was incorrect.
-# It has been corrected to 'gemini-2.5-flash'.
+# ### FIX: USE CORRECT MODEL NAME ###
+# The model name 'gemini-2.5-flash' was incorrect.
+# Corrected to 'gemini-2.5-flash'.
 # -----------------------------------------------------------------
 MODEL_TO_USE = 'gemini-2.5-flash'
 
 if not API_KEY:
     # In a cloud environment, print a fatal message
     print("FATAL: GOOGLE_API_KEY environment variable not found. The application cannot start.")
+else:
+    # This debug line might not appear in logs if the app crashes before
+    # the print buffer is flushed, which is normal.
+    print("DEBUG: GOOGLE_API_KEY was found and loaded from environment variables.")
 
-# --- FIX 1 (Continued): Initialize with old syntax ---
+# --- Use NEW SDK Syntax (google-generativeai >= 1.0.0) ---
 try:
     # Initialize using genai.configure and genai.GenerativeModel
     if API_KEY:
+        # --- FIX: This code is for the NEW SDK ---
+        # The 'configure' and 'GenerativeModel' methods are from the new SDK.
+        # The error was caused by an OLD version of the library being installed.
+        # The 'requirements.txt' file MUST specify 'google-generativeai>=1.0.0'.
         genai.configure(api_key=API_KEY)
         model = genai.GenerativeModel(MODEL_TO_USE)
     else:
@@ -39,9 +47,7 @@ except Exception as e:
 app = Flask(__name__)
 
 # Configure CORS (use specific origins in production)
-# --- FIX 3: Set CORS to '*' (Allow All) ---
-# An empty string "" is not a valid origin. Use "*" for development,
-# or your specific frontend URL like "https://my-food-app.com" for production.
+# Set CORS to '*' (Allow All) for development.
 CORS(app, resources={r"/api/*": {"origins": "*", "supports_credentials": True}})
 
 # --- Core LLM Logic ---
@@ -51,7 +57,6 @@ def execute_food_analyzer(query: str):
     Skill: Food and Nutrition Analyzer
     Generates a report on a food item using AI and Google Search.
     """
-    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
     if not model:
         raise Exception("AI model failed to initialize due to missing or invalid API key.")
 
@@ -70,19 +75,16 @@ Maintain clarity, emojis, and clean formatting as in Amul Butter style.
 Use Google Search to find all necessary nutritional and ingredient data.
 """
 
-    # --- FIX 1 (Continued): Use model.generate_content ---
-    # We call generate_content on the 'model' object, not the 'client'
-    # and remove the 'model=' argument.
+    # --- Use NEW SDK Syntax for generate_content ---
+    # This call uses 'system_instruction' and 'tools',
+    # which are features of the new SDK.
     response = model.generate_content(
         contents=query,  # The user's food item (e.g., "Amul Butter")
         system_instruction=system_prompt,
         tools=[{"google_search": {}}]
     )
 
-    # -----------------------------------------------------------------
-    # ### FIX 2: RESPONSE CHECK ###
-    # This check is still correct and important.
-    # -----------------------------------------------------------------
+    # --- Response Check ---
     if not response.parts:
         # This handles cases where the response was blocked
         print(f"Response was blocked by API. Feedback: {response.prompt_feedback}")
@@ -98,7 +100,6 @@ def check():
     Simple health check route to confirm the backend server is running.
     """
     status_code = 200
-    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
     if not model:
         # Return 503 if the core dependency (AI client) failed to initialize
         status_code = 503
@@ -117,7 +118,6 @@ def check():
 @app.route('/api/execute', methods=['POST'])
 def execute():
     # 1. Input Validation
-    # --- FIX 1 (Continued): Check for 'model' not 'client' ---
     if not model:
         return jsonify({'error': 'AI service not initialized. Check API key configuration.'}), 503
 
@@ -139,7 +139,7 @@ def execute():
     except Exception as e:
         # Catch all other unexpected errors
         print(f"Internal Server Error: {e}")
-
+        
         # This will now return the actual error message to Bruno,
         # which is much better for debugging.
         return jsonify({'error': f'An unexpected internal server error occurred: {str(e)}'}), 500
